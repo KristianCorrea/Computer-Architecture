@@ -2,6 +2,13 @@
 
 import sys
 
+LDI = 0b10000010  # LDI R0,8
+PRN = 0b01000111  # PRN R0
+HLT = 0b00000001
+MUL = 0b10100010  # MUL R0,R1
+PUSH = 0b01000101  # PUSH R0
+POP = 0b01000110  # POP R2
+
 class CPU:
     """Main CPU class."""
 
@@ -10,6 +17,7 @@ class CPU:
         self.pc = 0
         self.ram = [0] * 256
         self.reg = [0] * 8
+        self.sp = 7
 
     def load(self):
         """Load a program into memory."""
@@ -80,24 +88,45 @@ class CPU:
 
         while running:
             inst = self.ram_read(self.pc)
-            if inst == 0b00000001: #HLT
+            if inst == HLT: #HLT
                 ## HALT
                 running = False
-            elif inst == 0b01000111:
+            elif inst == PRN:
                 ## PRN print value in giver register
                 reg = self.ram_read(self.pc + 1)
                 print(self.reg[reg])
                 self.pc += 2
-            elif inst == 0b10000010:
+            elif inst == LDI:
                 ## LDI set register to value
                 reg = self.pc + 1
                 val = self.pc + 2
                 self.reg[self.ram_read(reg)] = self.ram_read(val)
                 self.pc += 3
-            elif inst == 0b10100010:
+            elif inst == MUL:
                 ## MULT regA and regB together, store esults in regA
                 reg_a = self.ram[self.pc + 1]
                 reg_b = self.ram[self.pc + 2]
                 self.alu('MUL', reg_a, reg_b)
                 self.pc += 3
+            elif inst == PUSH:
+                self.reg[self.sp] -= 1
+
+                reg_num = self.ram_read(self.pc + 1)
+                value = self.reg[reg_num]
+                # print(self.reg[self.sp])
+                push_to = self.reg[self.sp]
+                print(push_to)
+                self.ram[push_to] = value
+
+                self.pc += 2
+            elif inst == POP:
+                address_pop_from = self.reg[self.sp]
+                value = self.ram[address_pop_from]
+
+                reg_num = self.ram[self.pc + 1]
+                self.reg[reg_num] = value
+
+                self.reg[self.sp] += 1
+
+                self.pc += 2
 
