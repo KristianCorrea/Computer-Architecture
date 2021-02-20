@@ -2,40 +2,62 @@
 
 import sys
 
+LDI = 0b10000010  # LDI R0,8
+PRN = 0b01000111  # PRN R0
+HLT = 0b00000001
+MUL = 0b10100010  # MUL R0,R1
+PUSH = 0b01000101  # PUSH R0
+POP = 0b01000110  # POP R2
+
 class CPU:
     """Main CPU class."""
 
     def __init__(self):
         """Construct a new CPU."""
-        pass
+        self.pc = 0
+        self.ram = [0] * 256
+        self.reg = [0] * 8
+        self.sp = 7
 
     def load(self):
         """Load a program into memory."""
 
         address = 0
 
-        # For now, we've just hardcoded a program:
+        if len(sys.argv) != 2:
+            print("usage: comp.py filename")
+            sys.exit(1)
 
-        program = [
-            # From print8.ls8
-            0b10000010, # LDI R0,8
-            0b00000000,
-            0b00001000,
-            0b01000111, # PRN R0
-            0b00000000,
-            0b00000001, # HLT
-        ]
+        try:
+            with open(sys.argv[1]) as f:
+                for instruction in f:
+                    try:
+                        instruction = instruction.strip()
+                        instruction = instruction.split('#', 1)[0]
+                        instruction = int(instruction, 2)
+                        # print(instruction)
+                        self.ram[address] = instruction
+                        address += 1
+                    except ValueError:
+                        pass
+        except FileNotFoundError:
+            print(f"Couldn't find file {sys.argv[1]}")
+            sys.exit(1)
 
-        for instruction in program:
-            self.ram[address] = instruction
-            address += 1
 
+    def ram_read(self, address):
+        return self.ram[address]
+    
+    def ram_write(self, value, address):
+        self.ram[address] = value
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
 
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
+        elif op == "MUL":
+            self.reg[reg_a] *= self.reg[reg_b]
         #elif op == "SUB": etc
         else:
             raise Exception("Unsupported ALU operation")
@@ -62,4 +84,49 @@ class CPU:
 
     def run(self):
         """Run the CPU."""
-        pass
+        running = True
+
+        while running:
+            inst = self.ram_read(self.pc)
+            if inst == HLT: #HLT
+                ## HALT
+                running = False
+            elif inst == PRN:
+                ## PRN print value in giver register
+                reg = self.ram_read(self.pc + 1)
+                print(self.reg[reg])
+                self.pc += 2
+            elif inst == LDI:
+                ## LDI set register to value
+                reg = self.pc + 1
+                val = self.pc + 2
+                self.reg[self.ram_read(reg)] = self.ram_read(val)
+                self.pc += 3
+            elif inst == MUL:
+                ## MULT regA and regB together, store esults in regA
+                reg_a = self.ram[self.pc + 1]
+                reg_b = self.ram[self.pc + 2]
+                self.alu('MUL', reg_a, reg_b)
+                self.pc += 3
+            elif inst == PUSH:
+                self.reg[self.sp] -= 1
+
+                reg_num = self.ram_read(self.pc + 1)
+                value = self.reg[reg_num]
+                # print(self.reg[self.sp])
+                push_to = self.reg[self.sp]
+                print(push_to)
+                self.ram[push_to] = value
+
+                self.pc += 2
+            elif inst == POP:
+                address_pop_from = self.reg[self.sp]
+                value = self.ram[address_pop_from]
+
+                reg_num = self.ram[self.pc + 1]
+                self.reg[reg_num] = value
+
+                self.reg[self.sp] += 1
+
+                self.pc += 2
+
